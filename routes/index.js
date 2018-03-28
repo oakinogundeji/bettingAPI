@@ -22,12 +22,50 @@ const {
 SESSION_TOKEN = process.argv[2];
 
 // helpers
+async function getSelectionID(MKT_ID) {
+  try {
+    const
+      MTHD = `${BETTING_MTHD}/listMarketCatalogue`,
+      request = await axios.post(JRPC_BETTING_URL, {
+        "jsonrpc": "2.0",
+        "method": MTHD,
+        "params": {
+          "maxResults": 1,
+          "filter": {
+            "marketIds": MKT_ID
+          }
+        }
+      }, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-type': 'application/json',
+          'X-Application': APP_KEY,
+          'X-Authentication': SESSION_TOKEN
+        }
+      });
+    if(!!request && request[0]["result"]["status"] == "SUCCESS") {
+      return Promise.resolve(request);
+    }
+  }
+  catch(err) {
+    const errMsg = `failed to retrieve market information for MKT_ID: ${MKT_ID}`;
+    return Promise.reject({msg: errMsg, err: err});
+  }
+}
 
 async function placeOrder(data) {
+  // see notes
   try {
-    const {MKT_ID, SELECTION_ID, SIDE, SIZE, PRICE} = data;
+    const {MKT_ID, SELECTION, SIDE, SIZE, PRICE} = data;
     const
       MTHD = `${BETTING_MTHD}/placeOrders`,
+      rawSelectionInfo = await getSelectionID(MKT_ID),
+      targetSelectionID = rawSelectionInfo["runners"].filter(selection => {
+        if(selection.runnerName == SELECTION) {
+          return selection.selectionId;
+        }
+      }),
+      SELECTION_ID = targetSelectionID[0],
       request = await axios.post(JRPC_BETTING_URL, {
         "jsonrpc": "2.0",
         "method": MTHD,
@@ -55,13 +93,13 @@ async function placeOrder(data) {
           'X-Authentication': SESSION_TOKEN
         }
       });
-      if(!!request && request[0]["result"]["status"] == "SUCCESS") {
-        const {betId, placedDate, averagePriceMatched, sizeMatched} = request[0]["result"]["instructionReports"][0];
-        return Promise.resolve({betId, placedDate, averagePriceMatched, sizeMatched});
-      }
+    if(!!request && request[0]["result"]["status"] == "SUCCESS") {
+      const {betId, placedDate, averagePriceMatched, sizeMatched} = request[0]["result"]["instructionReports"][0];
+      return Promise.resolve({betId, placedDate, averagePriceMatched, sizeMatched});
+    }
   }
   catch(err) {
-    const errMsg = `failed to place bet with params MKT_ID: ${MKT_ID}, SELECTION_ID: ${SELECTION_ID}, SIDE: ${SIDE}, SIZE: ${SIZE}, PRICE: ${PRICE}`;
+    const errMsg = `failed to place bet with params MKT_ID: ${MKT_ID}, SELECTION: ${SELECTION}, SIDE: ${SIDE}, SIZE: ${SIZE}, PRICE: ${PRICE}`;
     return Promise.reject({msg: errMsg, err: err});
   }
 }
@@ -82,9 +120,9 @@ async function listInPlayOrders() {
           'X-Authentication': SESSION_TOKEN
         }
       });
-      if(!!request && request[0]["result"]["status"] == "SUCCESS") {
-        return Promise.resolve(request);
-      }
+    if(!!request && request[0]["result"]["status"] == "SUCCESS") {
+      return Promise.resolve(request);
+    }
   }
   catch(err) {
     const errMsg = 'failed to retrieve list of in-lay orders';
@@ -108,9 +146,9 @@ async function getAccountStatement() {
           'X-Authentication': SESSION_TOKEN
         }
       });
-      if(!!request && request[0]["result"]["status"] == "SUCCESS") {
-        return Promise.resolve(request);
-      }
+    if(!!request && request[0]["result"]["status"] == "SUCCESS") {
+      return Promise.resolve(request);
+    }
   }
   catch(err) {
     const errMsg = 'failed to retrieve account statement';

@@ -6,7 +6,7 @@ if(process.env.NODE_ENV != 'production') {
 // dependencies
 const
   express = require('express'),
-  Promise = require('bluebird'),
+  bParser = require('body-parser'),
   http = require('http');
 
 // variables
@@ -29,8 +29,17 @@ if(ENV != 'production') {
 }
 
 const server = http.createServer(app);
+
+// middleware pipeline
+app.use(bParser.json());
+app.use(bParser.urlencoded({extended: true}));
+
 // routes
 app.get('/test', (req, res) => res.status(200).json('OK!'));
+
+const routes = require('./routes');
+
+app.use('/', routes);
 
 // listen for connections
 server.listen(PORT, () => console.log(`BETTING API Server up on port:${server.address().port} in ${ENV} mode`));
